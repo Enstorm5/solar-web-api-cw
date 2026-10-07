@@ -8,7 +8,7 @@
     "node": "22.x"
   },
   "scripts": {
-    "dev": "tsx watch scripts/dev.ts",
+    "dev": "tsx watch --env-file-if-exists=.env scripts/dev.ts",
     "build": "tsx scripts/build-docs.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
@@ -16,11 +16,12 @@
     "test": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "test:all": "vitest run",
-    "db:migrate": "tsx scripts/migrate.ts",
-    "db:seed": "tsx scripts/seed.ts",
-    "db:verify": "tsx scripts/verify-seed.ts",
+    "db:migrate": "tsx --env-file-if-exists=.env scripts/migrate.ts",
+    "db:seed": "tsx --env-file-if-exists=.env scripts/seed.ts",
+    "db:verify": "tsx --env-file-if-exists=.env scripts/verify-seed.ts",
     "db:local": "tsx scripts/local-db.ts",
-    "token": "tsx scripts/issue-token.ts"
+    "token": "tsx --env-file-if-exists=.env scripts/issue-token.ts",
+    "db:runtime-role": "tsx --env-file-if-exists=.env scripts/create-runtime-role.ts"
   },
   "dependencies": {
     "@vercel/functions": "3.9.11",

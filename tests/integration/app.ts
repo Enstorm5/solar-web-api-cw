@@ -29,7 +29,7 @@ export const READERS = {
 
 export async function buildTestApp(): Promise<TestApp> {
   const { publicKey, privateKey } = await generateKeyPair('ES256');
-  const pool = createPool(inject('databaseUrl'));
+  const pool = createPool(inject('runtimeDatabaseUrl'));
   const verifier: VerifierConfig = { publicKey, issuer: ISSUER, audience: AUDIENCE };
   const deps: AppDeps = { db: () => pool, verifier: async () => verifier };
   const token = (principal: 'user' | 'device', sub: string, scope: string, ttl = '5m') =>

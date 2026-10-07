@@ -3,11 +3,15 @@ import pg from 'pg';
 import { rmSync } from 'node:fs';
 import type { TestProject } from 'vitest/node';
 import { runMigrations } from '../../src/db/migrate.js';
+import { ensureRuntimeRole, RUNTIME_ROLE } from '../../src/db/runtime-role.js';
 import { seedDatabase } from '../../src/seed/seed.js';
 
 declare module 'vitest' {
   export interface ProvidedContext {
+    /** Owner/superuser connection (schema tests, fixtures). */
     databaseUrl: string;
+    /** Least-privilege connection used by the API under test, as in production. */
+    runtimeDatabaseUrl: string;
     seedAnchor: string;
   }
 }
@@ -41,9 +45,11 @@ export default async function setup(project: TestProject) {
     randomSeed: 'integration-test',
     installationCount: 200,
   });
+  await ensureRuntimeRole(client, 'runtime-test-password');
   await client.end();
 
   project.provide('databaseUrl', url);
+  project.provide('runtimeDatabaseUrl', `postgres://${RUNTIME_ROLE}:runtime-test-password@localhost:${PORT}/solar_test`);
   project.provide('seedAnchor', TEST_SEED_ANCHOR);
 
   return async () => {

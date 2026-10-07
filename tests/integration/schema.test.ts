@@ -1,5 +1,5 @@
-import type pg from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import pg from 'pg';
+import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { runMigrations } from '../../src/db/migrate.js';
 import { seedUuid } from '../../src/seed/generate.js';
 import { BRIEF_THRESHOLDS, verifySeed } from '../../src/seed/verify.js';
@@ -97,6 +97,29 @@ describe('T01 data invariants', () => {
       [seedUuid('dup-meter'), rows[0].substation_id],
     );
     expect(code).toBe('23505');
+  });
+
+  it('runtime role cannot rewrite history or change the hierarchy', async () => {
+    const runtime = new pg.Client({ connectionString: inject('runtimeDatabaseUrl') });
+    await runtime.connect();
+    const denied = async (sql: string) => {
+      try {
+        await runtime.query(sql);
+        return undefined;
+      } catch (err) {
+        return (err as { code?: string }).code;
+      }
+    };
+    try {
+      expect(await denied('UPDATE generation_readings SET power_kw = 0')).toBe('42501');
+      expect(await denied('DELETE FROM generation_readings')).toBe('42501');
+      expect(await denied('TRUNCATE generation_readings')).toBe('42501');
+      expect(await denied("UPDATE provinces SET name = 'x'")).toBe('42501');
+      expect(await denied('DROP TABLE users')).toBe('42501');
+      expect(await denied('SELECT count(*) FROM generation_readings')).toBeUndefined();
+    } finally {
+      await runtime.end();
+    }
   });
 
   it('re-running migrations applies nothing', async () => {
