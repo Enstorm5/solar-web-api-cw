@@ -12,6 +12,7 @@ import { assertConsistentGeography } from '../repositories/geography.js';
 import { getInstallation } from '../repositories/installations.js';
 import {
   DuplicateReadingError,
+  UnknownInstallationError,
   getReading,
   insertReading,
   listReadings,
@@ -128,6 +129,7 @@ export function readingRoutes(deps: AppDeps): Router {
         try {
           reading = await insertReading(deps.db(), installationId, body);
         } catch (err) {
+          if (err instanceof UnknownInstallationError) throw errors.notFound('Installation');
           if (err instanceof DuplicateReadingError) {
             throw new ApiError(
               409,

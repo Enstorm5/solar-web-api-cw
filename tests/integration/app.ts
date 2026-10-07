@@ -13,7 +13,12 @@ export interface TestApp {
   app: ReturnType<typeof createApp>;
   pool: pg.Pool;
   privateKey: CryptoKey;
-  token(principal: 'user' | 'device', sub: string, scope: string, ttl?: string): Promise<string>;
+  token(
+    principal: 'user' | 'device' | 'service',
+    sub: string,
+    scope: string,
+    ttl?: string,
+  ): Promise<string>;
   reader(subject: keyof typeof READERS): Promise<string>;
   device(meterId: string): Promise<string>;
   close(): Promise<void>;
@@ -32,8 +37,21 @@ export async function buildTestApp(): Promise<TestApp> {
   const pool = createPool(inject('runtimeDatabaseUrl'));
   const verifier: VerifierConfig = { publicKey, issuer: ISSUER, audience: AUDIENCE };
   const deps: AppDeps = { db: () => pool, verifier: async () => verifier };
-  const token = (principal: 'user' | 'device', sub: string, scope: string, ttl = '5m') =>
-    signAccessToken({ privateKey, issuer: ISSUER, audience: AUDIENCE, subject: sub, principal, scope, expiresIn: ttl });
+  const token = (
+    principal: 'user' | 'device' | 'service',
+    sub: string,
+    scope: string,
+    ttl = '5m',
+  ) =>
+    signAccessToken({
+      privateKey,
+      issuer: ISSUER,
+      audience: AUDIENCE,
+      subject: sub,
+      principal,
+      scope,
+      expiresIn: ttl,
+    });
   return {
     app: createApp(deps),
     pool,

@@ -16,7 +16,9 @@ export function authenticate(deps: AppDeps): RequestHandler {
     try {
       const header = req.get('authorization');
       if (!header) throw errors.authenticationRequired();
-      const match = /^Bearer ([A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+)$/.exec(header.trim());
+      const match = /^Bearer ([A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+)$/.exec(
+        header.trim(),
+      );
       if (!match) throw errors.invalidToken('Authorization header must be: Bearer <JWT>');
 
       // Configuration failures must surface as 500, not be disguised as a client token error.
@@ -49,4 +51,24 @@ export const requireDeviceWriter: RequestHandler = (_req, res, next) => {
   const p = principalOf(res);
   const ok = p.kind === 'device' && p.scopes.has(SCOPES.INSTALLATION_WRITE);
   next(ok ? undefined : errors.insufficientScope(SCOPES.INSTALLATION_WRITE));
+};
+
+/** Provisioning service with installation-manage (installation metadata lifecycle only). */
+export const requireManager: RequestHandler = (_req, res, next) => {
+  const p = principalOf(res);
+  const ok = p.kind === 'service' && p.scopes.has(SCOPES.INSTALLATION_MANAGE);
+  next(ok ? undefined : errors.insufficientScope(SCOPES.INSTALLATION_MANAGE));
+};
+
+/** Analysts, or the provisioning service for installation metadata it manages. */
+export const requireReaderOrManager: RequestHandler = (_req, res, next) => {
+  const p = principalOf(res);
+  const ok =
+    (p.kind === 'reader' && READ_SCOPES.some((s) => p.scopes.has(s))) ||
+    (p.kind === 'service' && p.scopes.has(SCOPES.INSTALLATION_MANAGE));
+  next(
+    ok
+      ? undefined
+      : errors.insufficientScope(`${READ_SCOPES.join(' | ')} | ${SCOPES.INSTALLATION_MANAGE}`),
+  );
 };

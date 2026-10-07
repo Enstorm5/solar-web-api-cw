@@ -3,7 +3,9 @@ import { principalOf } from '../auth/middleware.js';
 import { methodNotAllowed } from '../http/middleware.js';
 import { scopeParams, type ScopeParams } from '../repositories/scope.js';
 
-type Handlers = Partial<Record<'get' | 'post' | 'put' | 'delete', RequestHandler | RequestHandler[]>>;
+type Handlers = Partial<
+  Record<'get' | 'post' | 'put' | 'delete', RequestHandler | RequestHandler[]>
+>;
 
 /** Registers handlers for one URI template and answers every other method with 405 + Allow. */
 export function resource(router: Router, path: string, handlers: Handlers): void {
@@ -22,9 +24,13 @@ export const asyncHandler =
     fn(req, res, next).catch(next);
   };
 
-/** Jurisdiction of the authenticated reader as SQL scope parameters (after requireReader). */
+/**
+ * Jurisdiction of the authenticated caller as SQL scope parameters. The provisioning service has
+ * national visibility of installation metadata only (routes decide where it is admitted).
+ */
 export function readerScope(res: Response): ScopeParams {
   const p = principalOf(res);
-  if (p.kind !== 'reader') throw new Error('reader principal expected');
-  return scopeParams(p.jurisdiction);
+  if (p.kind === 'reader') return scopeParams(p.jurisdiction);
+  if (p.kind === 'service') return { provinceId: null, districtId: null };
+  throw new Error('reader or service principal expected');
 }

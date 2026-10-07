@@ -16,6 +16,8 @@ export const ErrorCode = {
   NOT_ACCEPTABLE: 1050,
   DUPLICATE_READING: 1060,
   INSTALLATION_HAS_READINGS: 1061,
+  DUPLICATE_METER: 1062,
+  HISTORY_PROTECTED: 1063,
   PRECONDITION_FAILED: 1070,
   PAYLOAD_TOO_LARGE: 1080,
   UNSUPPORTED_MEDIA_TYPE: 1090,
@@ -82,7 +84,8 @@ export const errors = {
     new ApiError(400, ErrorCode.INVALID_QUERY, 'Invalid query parameters', items),
   invalidPath: (items: ErrorItem[]) =>
     new ApiError(400, ErrorCode.INVALID_PATH_PARAMETER, 'Invalid path parameter', items),
-  malformedJson: () => new ApiError(400, ErrorCode.MALFORMED_JSON, 'Request body is not valid JSON'),
+  malformedJson: () =>
+    new ApiError(400, ErrorCode.MALFORMED_JSON, 'Request body is not valid JSON'),
   authenticationRequired: () =>
     new ApiError(401, ErrorCode.AUTHENTICATION_REQUIRED, 'A bearer token is required', undefined, {
       'WWW-Authenticate': BEARER_REALM,
@@ -92,18 +95,48 @@ export const errors = {
       'WWW-Authenticate': `${BEARER_REALM}, error="invalid_token"`,
     }),
   insufficientScope: (required: string) =>
-    new ApiError(403, ErrorCode.INSUFFICIENT_SCOPE, `This operation requires scope: ${required}`, undefined, {
-      'WWW-Authenticate': `${BEARER_REALM}, error="insufficient_scope", scope="${required}"`,
-    }),
+    new ApiError(
+      403,
+      ErrorCode.INSUFFICIENT_SCOPE,
+      `This operation requires scope: ${required}`,
+      undefined,
+      {
+        'WWW-Authenticate': `${BEARER_REALM}, error="insufficient_scope", scope="${required}"`,
+      },
+    ),
   notFound: (what = 'Resource') => new ApiError(404, ErrorCode.NOT_FOUND, `${what} not found`),
   routeNotFound: () => new ApiError(404, ErrorCode.ROUTE_NOT_FOUND, 'No resource matches this URI'),
   methodNotAllowed: (allow: string[]) =>
-    new ApiError(405, ErrorCode.METHOD_NOT_ALLOWED, 'Method not supported by this resource', undefined, {
-      Allow: allow.join(', '),
-    }),
+    new ApiError(
+      405,
+      ErrorCode.METHOD_NOT_ALLOWED,
+      'Method not supported by this resource',
+      undefined,
+      {
+        Allow: allow.join(', '),
+      },
+    ),
   notAcceptable: () =>
-    new ApiError(406, ErrorCode.NOT_ACCEPTABLE, 'Only application/json representations are available'),
-  payloadTooLarge: () => new ApiError(413, ErrorCode.PAYLOAD_TOO_LARGE, 'Request body is too large'),
+    new ApiError(
+      406,
+      ErrorCode.NOT_ACCEPTABLE,
+      'Only application/json representations are available',
+    ),
+  preconditionRequired: () =>
+    new ApiError(
+      403,
+      ErrorCode.PRECONDITION_REQUIRED,
+      'This request must be conditional: send If-Match with the current ETag',
+    ),
+  preconditionFailed: () =>
+    new ApiError(
+      412,
+      ErrorCode.PRECONDITION_FAILED,
+      'The resource has changed since the supplied ETag; GET it again and retry',
+    ),
+  conflict: (code: number, message: string) => new ApiError(409, code, message),
+  payloadTooLarge: () =>
+    new ApiError(413, ErrorCode.PAYLOAD_TOO_LARGE, 'Request body is too large'),
   unsupportedMediaType: () =>
     new ApiError(415, ErrorCode.UNSUPPORTED_MEDIA_TYPE, 'Request body must be application/json'),
   unavailable: () =>

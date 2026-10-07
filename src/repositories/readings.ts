@@ -24,6 +24,7 @@ export interface NewReading {
 }
 
 export class DuplicateReadingError extends Error {}
+export class UnknownInstallationError extends Error {}
 
 /** Appends one reading. The UNIQUE(installation_id, timestamp) constraint makes retries safe. */
 export async function insertReading(
@@ -41,6 +42,8 @@ export async function insertReading(
     return rows[0]!;
   } catch (err) {
     if ((err as { code?: string }).code === '23505') throw new DuplicateReadingError();
+    // Installation deleted between authentication and insert.
+    if ((err as { code?: string }).code === '23503') throw new UnknownInstallationError();
     throw err;
   }
 }

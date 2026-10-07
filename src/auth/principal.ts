@@ -8,7 +8,9 @@ export type Jurisdiction =
 
 export type Principal =
   | { kind: 'device'; installationId: string; scopes: Set<string> }
-  | { kind: 'reader'; userId: string; jurisdiction: Jurisdiction; scopes: Set<string> };
+  | { kind: 'reader'; userId: string; jurisdiction: Jurisdiction; scopes: Set<string> }
+  /** Operational provisioning service (Q1): installation metadata only, never readings. */
+  | { kind: 'service'; subject: string; scopes: Set<string> };
 
 const ROLE_SCOPE = {
   national: SCOPES.READ_NATIONAL,
@@ -24,7 +26,16 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * the intersection of token scopes and what the database record currently permits.
  * Returns undefined when the subject is unknown or inactive.
  */
-export async function resolvePrincipal(db: Queryable, claims: TokenClaims): Promise<Principal | undefined> {
+export async function resolvePrincipal(
+  db: Queryable,
+  claims: TokenClaims,
+): Promise<Principal | undefined> {
+  if (claims.principal === 'service') {
+    // Not a domain entity: trust rests on the issuer's signature; revocation is by key rotation
+    // or short token lifetimes. Only the manage scope is honoured for this principal type.
+    const scopes = new Set([...claims.scopes].filter((s) => s === SCOPES.INSTALLATION_MANAGE));
+    return { kind: 'service', subject: claims.sub, scopes };
+  }
   if (claims.principal === 'device') {
     if (!UUID_RE.test(claims.sub)) return undefined;
     const { rows } = await db.query<{ id: string }>(
@@ -55,8 +66,14 @@ export async function resolvePrincipal(db: Queryable, claims: TokenClaims): Prom
       ? { level: 'national' }
       : user.role === 'provincial'
         ? { level: 'province', provinceId: user.province_id! }
-        : { level: 'district', districtId: user.district_id!, provinceId: user.district_province_id! };
+        : {
+            level: 'district',
+            districtId: user.district_id!,
+            provinceId: user.district_province_id!,
+          };
   const allowed = ROLE_SCOPE[user.role];
-  const scopes = new Set([...claims.scopes].filter((s) => s === allowed && READ_SCOPES.includes(s)));
+  const scopes = new Set(
+    [...claims.scopes].filter((s) => s === allowed && READ_SCOPES.includes(s)),
+  );
   return { kind: 'reader', userId: user.id, jurisdiction, scopes };
 }

@@ -8,13 +8,18 @@ export const SCOPES = {
   READ_NATIONAL: 'analyst-read-national',
   READ_PROVINCE: 'analyst-read-province',
   READ_DISTRICT: 'analyst-read-district',
+  INSTALLATION_MANAGE: 'installation-manage',
 } as const;
 
-export const READ_SCOPES: readonly string[] = [SCOPES.READ_NATIONAL, SCOPES.READ_PROVINCE, SCOPES.READ_DISTRICT];
+export const READ_SCOPES: readonly string[] = [
+  SCOPES.READ_NATIONAL,
+  SCOPES.READ_PROVINCE,
+  SCOPES.READ_DISTRICT,
+];
 
 const claimsSchema = z.object({
   sub: z.string().min(1).max(100),
-  principal: z.enum(['device', 'user']),
+  principal: z.enum(['device', 'user', 'service']),
   scope: z.string().min(1).max(500),
 });
 
@@ -62,7 +67,7 @@ export interface SignOptions {
   issuer: string;
   audience: string;
   subject: string;
-  principal: 'device' | 'user';
+  principal: 'device' | 'user' | 'service';
   scope: string;
   expiresIn: string | number;
   /** Key id (JWK thumbprint of the signing key) to support future key rotation. */
