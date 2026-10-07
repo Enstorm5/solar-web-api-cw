@@ -133,13 +133,13 @@ await check(
 );
 await check(
   'district summary (Colombo)',
-  `${api}/districts/${seedUuid('district:CMB')}/generation-summary`,
+  `${api}/district-generation-summary?district-id=${seedUuid('district:CMB')}`,
   bearer(national),
   (r, b) => r.status === 200 && JSON.parse(b).installation_count > 0,
 );
 await check(
   'district reader: foreign summary 404',
-  `${api}/districts/${seedUuid('district:KDY')}/generation-summary`,
+  `${api}/district-generation-summary?district-id=${seedUuid('district:KDY')}`,
   bearer(cmb),
   (r) => r.status === 404,
 );

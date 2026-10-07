@@ -21,7 +21,7 @@ Province → District → GridSubstation → SolarInstallation → GenerationRea
 |---|---|---|
 | GET | `/provinces`, `/provinces/{province-id}`, `/provinces/{province-id}/districts` | analysts |
 | GET | `/districts`, `/districts/{district-id}`, `/districts/{district-id}/grid-substations` | analysts |
-| GET | `/districts/{district-id}/generation-summary?date=&as-of=` | analysts |
+| GET | `/district-generation-summary?district-id=&date=&as-of=` | analysts |
 | GET | `/grid-substations`, `/grid-substations/{substation-id}`, `/grid-substations/{substation-id}/installations` | analysts |
 | GET | `/installations`, `/installations/{installation-id}` | analysts (atom also provisioning service) |
 | GET | `/installations/{installation-id}/overview`, `/installations/{installation-id}/last-known-reading` | analysts |

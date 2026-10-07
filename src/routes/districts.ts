@@ -18,6 +18,7 @@ const listQuery = z.strictObject({ 'province-id': uuidQuery, ...paginationShape 
 const pageQuery = z.strictObject({ ...paginationShape });
 const noQuery = z.strictObject({});
 const summaryQuery = z.strictObject({
+  'district-id': z.uuid('Must be a UUID').transform((v) => v.toLowerCase()),
   date: z.iso.date('Must be a calendar date YYYY-MM-DD').optional(),
   'as-of': z.iso
     .datetime({
@@ -61,13 +62,15 @@ export function districtRoutes(deps: AppDeps): Router {
     ],
   });
 
-  // Derived aggregate (processing-style, named as a noun per the Q2 decision; see ARCHITECTURE AD-11).
-  resource(r, '/districts/:districtId/generation-summary', {
+  // Processing-style derived resource. Named as a noun (rubric: verbs avoided) and, following
+  // WSO2 section 5.1 for processing resources, kept top-level with the individual district passed
+  // as a parameter rather than nested under /districts/{id}. See ARCHITECTURE AD-11.
+  resource(r, '/district-generation-summary', {
     get: [
       requireReader,
       asyncHandler(async (req, res) => {
-        const districtId = uuidParam(req, 'districtId');
         const q = parseQuery(req, summaryQuery);
+        const districtId = q['district-id'];
         // Default evaluation bucket: the current minute, so repeated requests share an ETag.
         const asOf = q['as-of']
           ? new Date(q['as-of'])

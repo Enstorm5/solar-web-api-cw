@@ -137,14 +137,34 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
-  /districts/{district-id}/generation-summary:
+  /districts/{district-id}/grid-substations:
+    get:
+      tags: [Grid substations]
+      operationId: listDistrictGridSubstations
+      summary: List grid substations in a district (scoped collection)
+      parameters:
+        - $ref: '#/components/parameters/DistrictId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200': { $ref: '#/components/responses/GridSubstationCollection' }
+        '304': { $ref: '#/components/responses/NotModified' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+  /district-generation-summary:
     get:
       tags: [Districts]
       operationId: getDistrictGenerationSummary
       summary: Aggregate generation for a district (derived, operational dashboard view)
       description: |
-        Computed on request across every installation in the district (a processing-style
-        resource exposed as a retrievable noun). All times are evaluated for an explicit `as_of`
+        Computed on request across every installation in the district: a processing-style
+        resource. It is named as a noun (verbs avoided) and, as WSO2 section 5.1 prescribes for
+        processing resources, it is not nested under an individual district; the district is a
+        required parameter instead. All times are evaluated for an explicit `as_of`
         and the calendar `date` in Asia/Colombo (local midnight is 18:30 UTC the previous day).
 
         - **current_power_kw** sums each site's latest power observed at most `freshness_seconds`
@@ -161,7 +181,11 @@ paths:
         The ETag covers every returned value, so a 304 is only possible within the same
         evaluation bucket (same `as_of`, which defaults to the current minute).
       parameters:
-        - $ref: '#/components/parameters/DistrictId'
+        - name: district-id
+          in: query
+          required: true
+          description: The district to summarise (must be within the caller's jurisdiction, otherwise 404).
+          schema: { type: string, format: uuid }
         - name: date
           in: query
           description: Calendar date in Asia/Colombo. Defaults to the local date of `as-of`.
@@ -180,24 +204,6 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/DistrictGenerationSummary' }
-        '304': { $ref: '#/components/responses/NotModified' }
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '406': { $ref: '#/components/responses/NotAcceptable' }
-  /districts/{district-id}/grid-substations:
-    get:
-      tags: [Grid substations]
-      operationId: listDistrictGridSubstations
-      summary: List grid substations in a district (scoped collection)
-      parameters:
-        - $ref: '#/components/parameters/DistrictId'
-        - $ref: '#/components/parameters/Limit'
-        - $ref: '#/components/parameters/Offset'
-        - $ref: '#/components/parameters/IfNoneMatch'
-      responses:
-        '200': { $ref: '#/components/responses/GridSubstationCollection' }
         '304': { $ref: '#/components/responses/NotModified' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }

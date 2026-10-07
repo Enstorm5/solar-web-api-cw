@@ -110,8 +110,8 @@ describe('T14 responses conform to the OpenAPI schemas', () => {
     ['/districts', '/districts'],
     ['/districts/{district-id}', `/districts/${ids.district('CMB')}`],
     [
-      '/districts/{district-id}/generation-summary',
-      `/districts/${ids.district('CMB')}/generation-summary?date=2026-09-30&as-of=2026-10-01T00:00:00Z`,
+      '/district-generation-summary',
+      `/district-generation-summary?district-id=${ids.district('CMB')}&date=2026-09-30&as-of=2026-10-01T00:00:00Z`,
     ],
     [
       '/districts/{district-id}/grid-substations',

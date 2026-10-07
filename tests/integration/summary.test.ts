@@ -92,7 +92,7 @@ afterAll(async () => {
 
 const summary = (district: string, q: string, token = national) =>
   request(t.app)
-    .get(`/solar/v1.0/districts/${district}/generation-summary${q}`)
+    .get(`/solar/v1.0/district-generation-summary?district-id=${district}${q.replace(/^\?/, '&')}`)
     .set('Authorization', `Bearer ${token}`);
 
 describe('T11 district generation summary', () => {
@@ -179,6 +179,14 @@ describe('T11 district generation summary', () => {
     expect([notStarted.status, notStarted.body.error[0].field]).toEqual([400, 'date']);
     expect((await summary(D, '?date=25-09-2026')).status).toBe(400);
     expect((await summary(D, '?district=x')).status).toBe(400);
+    const missing = await request(t.app)
+      .get('/solar/v1.0/district-generation-summary')
+      .set('Authorization', `Bearer ${national}`);
+    expect([missing.status, missing.body.error[0].field]).toEqual([400, 'district-id']);
+    const malformed = await request(t.app)
+      .get('/solar/v1.0/district-generation-summary?district-id=CMB')
+      .set('Authorization', `Bearer ${national}`);
+    expect([malformed.status, malformed.body.error[0].field]).toEqual([400, 'district-id']);
   });
 
   it('devices cannot read the summary (403)', async () => {
