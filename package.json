@@ -22,7 +22,8 @@
     "db:local": "tsx scripts/local-db.ts",
     "token": "tsx --env-file-if-exists=.env scripts/issue-token.ts",
     "db:runtime-role": "tsx --env-file-if-exists=.env scripts/create-runtime-role.ts",
-    "smoke": "tsx --env-file-if-exists=.env scripts/smoke.ts"
+    "smoke": "tsx --env-file-if-exists=.env scripts/smoke.ts",
+    "simulate": "tsx --env-file-if-exists=.env scripts/simulate-device.ts"
   },
   "dependencies": {
     "@vercel/functions": "3.9.11",
