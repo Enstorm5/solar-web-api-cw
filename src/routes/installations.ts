@@ -9,7 +9,10 @@ import { sendRepresentation } from '../http/respond.js';
 import { paginationShape, parseQuery, uuidParam, uuidQuery } from '../http/validate.js';
 import { assertConsistentGeography } from '../repositories/geography.js';
 import { getInstallation, listInstallations } from '../repositories/installations.js';
+import { getOverview } from '../repositories/overview.js';
+import { latestReading } from '../repositories/readings.js';
 import { getSubstation } from '../repositories/substations.js';
+import { readingUri } from './readings.js';
 import { asyncHandler, readerScope, resource } from './route.js';
 
 const listQuery = z.strictObject({
@@ -61,6 +64,45 @@ export function installationRoutes(deps: AppDeps): Router {
         const installation = await getInstallation(deps.db(), readerScope(res), id);
         if (!installation) throw errors.notFound('Installation');
         sendRepresentation(req, res, installation, { lastModified: installation.updated_at });
+      }),
+    ],
+  });
+
+  resource(r, '/installations/:installationId/overview', {
+    get: [
+      requireReader,
+      asyncHandler(async (req, res) => {
+        const id = uuidParam(req, 'installationId');
+        parseQuery(req, noQuery);
+        const overview = await withSnapshot(deps.db(), (c) => getOverview(c, readerScope(res), id));
+        if (!overview) throw errors.notFound('Installation');
+        // ETag only: the composite depends on several rows, so no single reliable Last-Modified.
+        sendRepresentation(req, res, overview);
+      }),
+    ],
+  });
+
+  // Derived operational resource: the newest observation, not a stored "last value" field.
+  resource(r, '/installations/:installationId/last-known-reading', {
+    get: [
+      requireReader,
+      asyncHandler(async (req, res) => {
+        const id = uuidParam(req, 'installationId');
+        parseQuery(req, noQuery);
+        const scope = readerScope(res);
+        const result = await withSnapshot(deps.db(), async (c) => {
+          if (!(await getInstallation(c, scope, id))) return { installation: false as const };
+          return { installation: true as const, reading: await latestReading(c, id) };
+        });
+        if (!result.installation) throw errors.notFound('Installation');
+        if (!result.reading) throw errors.notFound('Reading (installation has not reported yet)');
+        const uri = readingUri(id, result.reading.id);
+        sendRepresentation(
+          req,
+          res,
+          { ...result.reading, reading_uri: uri },
+          { headers: { 'Content-Location': uri } },
+        );
       }),
     ],
   });

@@ -112,3 +112,19 @@ export async function listReadings(
   );
   return { data: rows.rows, count: count.rows[0]!.n };
 }
+
+/**
+ * Most recent observation for an installation, by observation timestamp (not receipt time), so a
+ * late-arriving older reading never displaces it. Served by the (installation_id, timestamp) index.
+ */
+export async function latestReading(
+  db: Queryable,
+  installationId: string,
+): Promise<Reading | undefined> {
+  const { rows } = await db.query<Reading>(
+    `SELECT ${READING_COLUMNS} FROM generation_readings r WHERE r.installation_id = $1
+     ORDER BY r."timestamp" DESC, r.id DESC LIMIT 1`,
+    [installationId],
+  );
+  return rows[0];
+}
