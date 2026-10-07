@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+.vercel/
+.env
+.env.*
+!.env.example
+.secrets/
+*.pem
+*.key
+.tmp/
+public/docs/assets/
+public/openapi.json
