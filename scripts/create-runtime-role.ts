@@ -1,8 +1,9 @@
 // `npm run db:runtime-role`: creates/rotates the least-privilege API role using the owner
 // connection (MIGRATION_DATABASE_URL), then prints a redacted runtime URL. The new password is
-// written only to .env as DATABASE_URL (pooled host) — copy it to Vercel from there.
+// written to .env as DATABASE_URL (pooled host) when .env targets the same database, otherwise to
+// .secrets/runtime-database-url.<host>. Copy it to Vercel from there; it is never printed.
 import { randomBytes } from 'node:crypto';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import pg from 'pg';
 import { ensureRuntimeRole, RUNTIME_ROLE } from '../src/db/runtime-role.js';
 
@@ -27,10 +28,24 @@ url.password = password;
 url.hostname = url.hostname.replace(/^(ep-[^.]+?)(-pooler)?\./, '$1-pooler.');
 const runtimeUrl = url.toString();
 
+// Only update .env when it already targets the same database host; otherwise a run against a
+// different environment (e.g. a local database) would silently replace that environment's only
+// local copy of its runtime URL. In that case the URL goes to a separate git-ignored file.
+const hostOf = (u: string) => new URL(u).hostname.replace('-pooler.', '.');
 const env = readFileSync('.env', 'utf8');
-const updated = /^DATABASE_URL=.*$/m.test(env)
-  ? env.replace(/^DATABASE_URL=.*$/m, `DATABASE_URL=${runtimeUrl}`)
-  : `DATABASE_URL=${runtimeUrl}\n${env}`;
-writeFileSync('.env', updated);
+const existing = /^DATABASE_URL=(.*)$/m.exec(env)?.[1]?.trim();
+if (!existing || hostOf(existing) === hostOf(runtimeUrl)) {
+  writeFileSync(
+    '.env',
+    existing
+      ? env.replace(/^DATABASE_URL=.*$/m, `DATABASE_URL=${runtimeUrl}`)
+      : `DATABASE_URL=${runtimeUrl}\n${env}`,
+  );
+} else {
+  mkdirSync('.secrets', { recursive: true });
+  const file = `.secrets/runtime-database-url.${url.hostname}`;
+  writeFileSync(file, `${runtimeUrl}\n`, { mode: 0o600 });
+  console.log(`.env targets a different database; NOT modified. Runtime URL written to ${file}`);
+}
 url.password = '****';
-console.log(`Role ${RUNTIME_ROLE} ready. .env DATABASE_URL -> ${url.toString()}`);
+console.log(`Role ${RUNTIME_ROLE} ready for ${url.toString()}`);
