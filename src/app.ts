@@ -1,10 +1,5 @@
-import express from 'express';
+// Vercel entrypoint: the Express app is the default export (zero-config Express on Vercel).
+import { createApp } from './create-app.js';
+import { envDeps } from './deps.js';
 
-const app = express();
-app.disable('x-powered-by');
-
-app.get('/health/live', (_req, res) => {
-  res.json({ status: 'ok' });
-});
-
-export default app;
+export default createApp(envDeps());
