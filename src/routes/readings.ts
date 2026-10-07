@@ -5,8 +5,17 @@ import type { AppDeps } from '../deps.js';
 import { ApiError, ErrorCode, errors } from '../http/errors.js';
 import { jsonBody } from '../http/middleware.js';
 import { sendRepresentation } from '../http/respond.js';
-import { parseBody, parseQuery, uuidParam } from '../http/validate.js';
-import { DuplicateReadingError, getReading, insertReading } from '../repositories/readings.js';
+import { paginationShape, parseBody, parseQuery, uuidParam, uuidQuery } from '../http/validate.js';
+import { withSnapshot } from '../db/snapshot.js';
+import { envelope } from '../http/pagination.js';
+import { assertConsistentGeography } from '../repositories/geography.js';
+import { getInstallation } from '../repositories/installations.js';
+import {
+  DuplicateReadingError,
+  getReading,
+  insertReading,
+  listReadings,
+} from '../repositories/readings.js';
 import { asyncHandler, readerScope, resource } from './route.js';
 
 /** Devices may report slightly ahead of server time; anything further is a clock fault. */
@@ -31,6 +40,31 @@ const readingCreate = z.strictObject({
 
 const noQuery = z.strictObject({});
 
+const instant = z.iso.datetime({
+  offset: true,
+  message: 'Must be an RFC 3339 date-time with a time zone (URL-encode "+" as %2B)',
+});
+const historyShape = {
+  from: instant.optional(),
+  to: instant.optional(),
+  sort: z.enum(['timestamp', '-timestamp']).optional(),
+  ...paginationShape,
+};
+const timeWindowValid = (q: { from?: string | undefined; to?: string | undefined }) =>
+  !q.from || !q.to || Date.parse(q.to) > Date.parse(q.from);
+const windowRule = { message: '`to` must be later than `from`', path: ['to'] };
+const historyQuery = z.strictObject(historyShape).refine(timeWindowValid, windowRule);
+const regionalQuery = z
+  .strictObject({
+    'province-id': uuidQuery,
+    'district-id': uuidQuery,
+    'substation-id': uuidQuery,
+    ...historyShape,
+  })
+  .refine(timeWindowValid, windowRule);
+
+const toDate = (s: string | undefined) => (s ? new Date(s) : undefined);
+
 export const readingUri = (installationId: string, readingId: string) =>
   `/solar/v1.0/installations/${installationId}/readings/${readingId}`;
 
@@ -38,6 +72,35 @@ export function readingRoutes(deps: AppDeps): Router {
   const r = Router();
 
   resource(r, '/installations/:installationId/readings', {
+    get: [
+      requireReader,
+      asyncHandler(async (req, res) => {
+        const installationId = uuidParam(req, 'installationId');
+        const q = parseQuery(req, historyQuery);
+        const scope = readerScope(res);
+        const sort = q.sort ?? '-timestamp';
+        const result = await withSnapshot(deps.db(), async (c) => {
+          if (!(await getInstallation(c, scope, installationId))) return undefined;
+          return listReadings(
+            c,
+            scope,
+            {
+              installationId,
+              from: toDate(q.from),
+              to: toDate(q.to),
+              ascending: sort === 'timestamp',
+            },
+            q,
+          );
+        });
+        if (!result) throw errors.notFound('Installation');
+        sendRepresentation(
+          req,
+          res,
+          envelope(req, result.data, result.count, q, { from: q.from, to: q.to, sort }),
+        );
+      }),
+    ],
     post: [
       requireDeviceWriter,
       (req, res, next) => {
@@ -80,6 +143,43 @@ export function readingRoutes(deps: AppDeps): Router {
           lastModified: reading.received_at,
           headers: { Location: location, 'Content-Location': location },
         });
+      }),
+    ],
+  });
+
+  resource(r, '/readings', {
+    get: [
+      requireReader,
+      asyncHandler(async (req, res) => {
+        const q = parseQuery(req, regionalQuery);
+        const scope = readerScope(res);
+        const sort = q.sort ?? '-timestamp';
+        const geo = {
+          provinceId: q['province-id'],
+          districtId: q['district-id'],
+          substationId: q['substation-id'],
+        };
+        const { data, count } = await withSnapshot(deps.db(), async (c) => {
+          await assertConsistentGeography(c, scope, geo);
+          return listReadings(
+            c,
+            scope,
+            { ...geo, from: toDate(q.from), to: toDate(q.to), ascending: sort === 'timestamp' },
+            q,
+          );
+        });
+        sendRepresentation(
+          req,
+          res,
+          envelope(req, data, count, q, {
+            'province-id': q['province-id'],
+            'district-id': q['district-id'],
+            'substation-id': q['substation-id'],
+            from: q.from,
+            to: q.to,
+            sort,
+          }),
+        );
       }),
     ],
   });

@@ -62,3 +62,49 @@ export async function getReading(
   );
   return rows[0];
 }
+
+export interface ReadingQuery {
+  installationId?: string;
+  provinceId?: string | undefined;
+  districtId?: string | undefined;
+  substationId?: string | undefined;
+  from?: Date | undefined;
+  to?: Date | undefined;
+  ascending: boolean;
+}
+
+/**
+ * Scoped, filtered, ordered page of readings plus the total count under the same predicates.
+ * Ordering is by observation timestamp with the reading id as a stable tie-breaker in the same
+ * direction, so pages never overlap when many installations report at the same instant.
+ */
+export async function listReadings(
+  db: Queryable,
+  scope: ScopeParams,
+  q: ReadingQuery,
+  page: { limit: number; offset: number },
+) {
+  const p = new SqlParams();
+  const conds = geoConditions(
+    p,
+    scope,
+    { provinceId: q.provinceId, districtId: q.districtId, substationId: q.substationId },
+    INSTALLATION_GEO,
+  );
+  if (q.installationId) conds.push(`r.installation_id = ${p.add(q.installationId)}`);
+  if (q.from) conds.push(`r."timestamp" >= ${p.add(q.from)}`);
+  if (q.to) conds.push(`r."timestamp" < ${p.add(q.to)}`);
+  const from = `generation_readings r JOIN ${INSTALLATION_FROM} ON i.id = r.installation_id`;
+  const where = whereClause(conds);
+  const dir = q.ascending ? 'ASC' : 'DESC';
+  const count = await db.query<{ n: number }>(
+    `SELECT count(*) AS n FROM ${from} ${where}`,
+    p.values,
+  );
+  const rows = await db.query<Reading>(
+    `SELECT ${READING_COLUMNS} FROM ${from} ${where}
+     ORDER BY r."timestamp" ${dir}, r.id ${dir} LIMIT ${p.add(page.limit)} OFFSET ${p.add(page.offset)}`,
+    p.values,
+  );
+  return { data: rows.rows, count: count.rows[0]!.n };
+}
