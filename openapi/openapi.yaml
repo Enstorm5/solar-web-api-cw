@@ -13,7 +13,9 @@ info:
     **Authentication.** Every `/solar/v1.0` operation requires `Authorization: Bearer <JWT>`.
     Tokens are ES256-signed with issuer/audience checks. The `scope` claim grants an operation
     (`installation-write`, `analyst-read-national`, `analyst-read-province`,
-    `analyst-read-district`); jurisdiction is then resolved from the user's database record.
+    `analyst-read-district`, and `installation-manage` for the separate provisioning service that
+    maintains installation metadata); jurisdiction is then resolved from the user's database record.
+    Generation readings are append-only: no principal can modify or delete them.
     Resources outside the caller's jurisdiction are indistinguishable from nonexistent ones
     (404), and collection filters can only narrow, never widen, the caller's scope.
 
@@ -33,6 +35,7 @@ tags:
   - name: Grid substations
   - name: Installations
   - name: Readings
+  - name: Installation lifecycle
 paths:
   /provinces:
     get:
@@ -211,6 +214,39 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
+    post:
+      tags: [Installation lifecycle]
+      operationId: createInstallation
+      summary: Provision an installation under this grid substation (provisioning service only)
+      description: |
+        Requires a `service` token with scope `installation-manage`. Analysts and devices receive 403.
+        The parent substation is taken from the URI; `id`, timestamps and versioning are server-managed.
+      parameters:
+        - $ref: '#/components/parameters/SubstationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InstallationCreate' }
+      responses:
+        '201':
+          description: Installation created.
+          headers:
+            Location: { $ref: '#/components/headers/Location' }
+            Content-Location: { $ref: '#/components/headers/ContentLocation' }
+            ETag: { $ref: '#/components/headers/ETag' }
+            Last-Modified: { $ref: '#/components/headers/LastModified' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Installation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
   /installations:
     get:
       tags: [Installations]
@@ -235,6 +271,7 @@ paths:
       tags: [Installations]
       operationId: getInstallation
       summary: Retrieve installation metadata (atomic)
+      description: Available to analysts within their jurisdiction and to the provisioning service.
       parameters:
         - $ref: '#/components/parameters/InstallationId'
         - $ref: '#/components/parameters/IfNoneMatch'
@@ -255,6 +292,71 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
+    put:
+      tags: [Installation lifecycle]
+      operationId: replaceInstallation
+      summary: Replace installation metadata (complete representation, provisioning service only)
+      description: |
+        Complete replacement, never a partial update: every editable field is required. `If-Match`
+        with the current ETag is mandatory (missing -> 403 code 1021; stale -> 412). A no-op PUT keeps
+        the ETag. Changing `meter_id` or `substation_id` of an installation with recorded readings is
+        refused with 409 (code 1063) because it would rewrite historical regional reporting.
+        PUT never creates: an unknown id is 404.
+      parameters:
+        - $ref: '#/components/parameters/InstallationId'
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InstallationReplace' }
+      responses:
+        '200':
+          description: Installation replaced (or unchanged).
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+            Last-Modified: { $ref: '#/components/headers/LastModified' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Installation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+    delete:
+      tags: [Installation lifecycle]
+      operationId: deleteInstallation
+      summary: Delete an installation that has never reported (provisioning service only)
+      description: |
+        Requires `If-Match` (missing -> 403, stale -> 412). Installations with readings are never
+        deleted (409, code 1061): history is append-only; set `active` to false instead.
+        After success, GET and DELETE on the URI return 404 — the server state is the same, which is
+        what DELETE idempotency means (RFC 9110 section 9.2.2).
+      parameters:
+        - $ref: '#/components/parameters/InstallationId'
+        - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: Installation deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, deleted]
+                properties:
+                  id: { type: string, format: uuid }
+                  deleted: { type: boolean, const: true }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '412': { $ref: '#/components/responses/PreconditionFailed' }
   /installations/{installation-id}/overview:
     get:
       tags: [Installations]
@@ -494,6 +596,12 @@ components:
       in: header
       description: ETag(s) from a previous response; a match yields 304 with an empty body.
       schema: { type: string }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: Current strong ETag of the installation (or `*`). Weak validators never match.
+      schema: { type: string }
     IfModifiedSince:
       name: If-Modified-Since
       in: header
@@ -558,6 +666,23 @@ components:
         active: { type: boolean }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+    InstallationCreate:
+      type: object
+      additionalProperties: false
+      required: [meter_id, label, capacity_kw, commissioned_on, active]
+      properties:
+        meter_id: { type: string, pattern: '^[A-Z0-9][A-Z0-9-]{0,39}$', example: MTR-009001 }
+        label: { type: string, minLength: 1, maxLength: 120, example: New rooftop site (synthetic) }
+        capacity_kw: { type: number, exclusiveMinimum: 0, maximum: 999999, example: 6 }
+        commissioned_on: { type: string, format: date, description: Not in the future. }
+        active: { type: boolean }
+    InstallationReplace:
+      allOf:
+        - $ref: '#/components/schemas/InstallationCreate'
+        - type: object
+          required: [substation_id]
+          properties:
+            substation_id: { type: string, format: uuid }
     Reading:
       type: object
       required: [id, installation_id, timestamp, power_kw, cumulative_energy_kwh, voltage_v, received_at]
@@ -657,7 +782,7 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
     Forbidden:
-      description: Valid token without the scope required for this operation.
+      description: Valid token without the scope required for this operation (1020), or a required If-Match precondition is missing (1021).
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
@@ -672,7 +797,14 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
     Conflict:
-      description: A reading for this installation and timestamp already exists.
+      description: |
+        Duplicate reading timestamp (1060), installation with readings cannot be deleted (1061),
+        duplicate meter_id (1062), or a history-protected field change (1063).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    PreconditionFailed:
+      description: The supplied If-Match no longer matches the current ETag; nothing was changed.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
