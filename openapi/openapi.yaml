@@ -334,22 +334,14 @@ paths:
       description: |
         Requires `If-Match` (missing -> 403, stale -> 412). Installations with readings are never
         deleted (409, code 1061): history is append-only; set `active` to false instead.
-        After success, GET and DELETE on the URI return 404 — the server state is the same, which is
+        Success is 204 No Content. Afterwards, GET and DELETE on the URI return 404 — the server state is the same, which is
         what DELETE idempotency means (RFC 9110 section 9.2.2).
       parameters:
         - $ref: '#/components/parameters/InstallationId'
         - $ref: '#/components/parameters/IfMatch'
       responses:
-        '200':
-          description: Installation deleted.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [id, deleted]
-                properties:
-                  id: { type: string, format: uuid }
-                  deleted: { type: boolean, const: true }
+        '204':
+          description: Installation deleted. No body (a representation-bearing DELETE response would be re-evaluated against If-Match by the hosting edge).
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }

@@ -209,8 +209,8 @@ describe('T08 delete', () => {
       .delete(uri)
       .set(auth(service))
       .set('If-Match', site.headers.etag!);
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual({ id: site.body.id, deleted: true });
+    expect(res.status).toBe(204);
+    expect(res.text).toBe('');
     expect((await request(t.app).get(uri).set(auth(national))).status).toBe(404);
     expect((await request(t.app).delete(uri).set(auth(service)).set('If-Match', '*')).status).toBe(
       404,

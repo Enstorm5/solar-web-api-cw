@@ -155,8 +155,11 @@ export function installationRoutes(deps: AppDeps): Router {
         const id = uuidParam(req, 'installationId');
         parseQuery(req, noQuery);
         const ifMatch = requireIfMatch(req.get('if-match'));
-        const deleted = unwrap(await deleteInstallation(deps.db(), id, ifMatch));
-        res.set('Cache-Control', 'no-store').status(200).json({ id: deleted.id, deleted: true });
+        unwrap(await deleteInstallation(deps.db(), id, ifMatch));
+        // 204, not 200 + body: Vercel's edge re-evaluates If-Match on DELETE responses that carry
+        // a representation and turns a committed delete into a platform 412 (probe matrix,
+        // 2026-10-07). A 204 has no representation, so the client sees the true outcome.
+        res.set('Cache-Control', 'no-store').status(204).end();
       }),
     ],
   });
