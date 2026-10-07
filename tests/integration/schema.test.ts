@@ -68,9 +68,15 @@ describe('T01 data invariants', () => {
   });
 
   it('prevents deleting an installation that has history', async () => {
-    expect(await pgError('DELETE FROM solar_installations WHERE id = $1', [installationId])).toBe(
-      '23503',
+    const count = async () =>
+      (await db.query('SELECT count(*)::int AS n FROM generation_readings WHERE installation_id = $1', [installationId]))
+        .rows[0].n as number;
+    const before = await count();
+    // PostgreSQL 18 reports ON DELETE RESTRICT as 23001 (restrict_violation); 17 used 23503.
+    expect(['23001', '23503']).toContain(
+      await pgError('DELETE FROM solar_installations WHERE id = $1', [installationId]),
     );
+    expect(await count()).toBe(before);
   });
 
   it('enforces user role and jurisdiction consistency', async () => {
