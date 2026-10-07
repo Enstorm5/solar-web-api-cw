@@ -56,6 +56,8 @@ npm run db:local            # local PostgreSQL on :54320 (keep running in anothe
 
 Configuration is read from environment variables (see `.env.example`); scripts load `.env` when present. Never commit real values.
 
+> **PowerShell:** call `npm.cmd` instead of `npm` when passing arguments after `--` (e.g. `npm.cmd run token -- issue …`); PowerShell otherwise consumes the `--` and npm misreads the flags.
+
 ## Operations
 
 | Command | Purpose |
@@ -66,6 +68,8 @@ Configuration is read from environment variables (see `.env.example`); scripts l
 | `npm run db:runtime-role` | Create/rotate the `solar_api` least-privilege role; writes its URL to `.env` (same database only). |
 | `npm run token -- keygen` | Create the ES256 key pair in `.secrets/` (git-ignored). The API only gets the public key. |
 | `npm run token -- issue --principal user --sub analyst-cmb --scope analyst-read-district --ttl 30d` | Issue a token (printed to stdout only). |
+| `npm run token -- inspect <token>` | Decode header/claims and verify the signature, issuer, audience and expiry locally. |
+| `npm run token -- tamper <token> --sub analyst-national` | Security demo: edits claims but keeps the old signature; the API answers 401. |
 | `SIM_BASE_URL=… npm run simulate` | Emulate devices: append the missing 15-minute readings up to now through the API. |
 | `SMOKE_BASE_URL=… npm run smoke` | Read-only checks against a deployment. |
 
