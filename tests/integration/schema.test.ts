@@ -27,7 +27,12 @@ async function pgError(sql: string, params: unknown[] = []): Promise<string | un
 
 describe('T12 seed verification', () => {
   it('meets every brief-scale and integrity check', async () => {
-    const checks = await verifySeed(db, BRIEF_THRESHOLDS);
+    // Other test files ingest live/late readings into the same database; verify the seeded window.
+    const to = new Date(inject('seedAnchor'));
+    const checks = await verifySeed(db, BRIEF_THRESHOLDS, {
+      from: new Date(to.getTime() - 8 * 86_400_000),
+      to,
+    });
     const failed = checks.filter((c) => !c.ok);
     expect(failed, JSON.stringify(failed)).toEqual([]);
     expect(checks.length).toBeGreaterThanOrEqual(13);
@@ -69,8 +74,12 @@ describe('T01 data invariants', () => {
 
   it('prevents deleting an installation that has history', async () => {
     const count = async () =>
-      (await db.query('SELECT count(*)::int AS n FROM generation_readings WHERE installation_id = $1', [installationId]))
-        .rows[0].n as number;
+      (
+        await db.query(
+          'SELECT count(*)::int AS n FROM generation_readings WHERE installation_id = $1',
+          [installationId],
+        )
+      ).rows[0].n as number;
     const before = await count();
     // PostgreSQL 18 reports ON DELETE RESTRICT as 23001 (restrict_violation); 17 used 23503.
     expect(['23001', '23503']).toContain(
