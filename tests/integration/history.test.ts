@@ -145,6 +145,12 @@ describe('T05 regional readings', () => {
     expect(s.body.count).toBeGreaterThan(0);
   });
 
+  it('national unfiltered count (join-free path) equals the total number of readings', async () => {
+    const res = await get('national', '/readings?limit=1');
+    const { rows } = await t.pool.query('SELECT count(*)::int AS n FROM generation_readings');
+    expect(res.body.count).toBe(rows[0].n);
+  });
+
   it('scopes a district reader before counting, and filters cannot widen it', async () => {
     const own = await get('cmb', '/readings?limit=1');
     expect(own.body.count).toBe(await sqlCount('WHERE d.id = $1', [ids.district('CMB')]));

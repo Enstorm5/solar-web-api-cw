@@ -91,14 +91,18 @@ export async function listReadings(
     { provinceId: q.provinceId, districtId: q.districtId, substationId: q.substationId },
     INSTALLATION_GEO,
   );
+  // With no geography predicate (national scope, no filters) the hierarchy joins cannot remove
+  // rows — every reading has a NOT NULL FK chain to a district — so COUNT can skip them.
+  const needsHierarchy = conds.length > 0;
   if (q.installationId) conds.push(`r.installation_id = ${p.add(q.installationId)}`);
   if (q.from) conds.push(`r."timestamp" >= ${p.add(q.from)}`);
   if (q.to) conds.push(`r."timestamp" < ${p.add(q.to)}`);
   const from = `generation_readings r JOIN ${INSTALLATION_FROM} ON i.id = r.installation_id`;
   const where = whereClause(conds);
   const dir = q.ascending ? 'ASC' : 'DESC';
+  const countFrom = needsHierarchy ? from : 'generation_readings r';
   const count = await db.query<{ n: number }>(
-    `SELECT count(*) AS n FROM ${from} ${where}`,
+    `SELECT count(*) AS n FROM ${countFrom} ${where}`,
     p.values,
   );
   const rows = await db.query<Reading>(
