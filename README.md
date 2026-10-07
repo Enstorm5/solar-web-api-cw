@@ -2,6 +2,7 @@
 
 Backend REST API (NB6007CEM coursework) for real-time and historical rooftop solar generation data for the Sri Lanka Sustainable Energy Authority. Installation metering devices push readings; SLSEA national, provincial and district analysts read data within their jurisdiction. There is no client application: the OpenAPI/Swagger surface is the interface.
 
+- **Repository:** https://github.com/Enstorm5/solar-web-api-cw
 - **Production:** https://slsea-solar-api-psi.vercel.app
 - **Swagger UI:** https://slsea-solar-api-psi.vercel.app/docs · **OpenAPI:** `/openapi.json`
 - **Base path:** `/solar/v1.0` (all business resources need a bearer JWT)
@@ -77,7 +78,7 @@ Seeded analyst subjects: `analyst-national`, `analyst-wp`, `analyst-cp` (provinc
 
 ### Deployment
 
-Vercel builds with `npm run build` (writes `public/openapi.json` and Swagger assets) and serves `src/app.ts` as one function in `sin1`, next to the Neon database. Production environment variables: `DATABASE_URL` (pooled, `solar_api` role), `JWT_PUBLIC_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE`. Preview deployments deliberately have no database credentials. Migrations and seeding run from a workstation, never during a request or build.
+The Vercel project is connected to this GitHub repository: every push to `main` builds and deploys to production automatically, and other branches get preview deployments (behind Vercel authentication, with no database credentials). Vercel builds with `npm run build` (writes `public/openapi.json` and Swagger assets) and serves `src/app.ts` as one function in `sin1`, next to the Neon database. Production environment variables: `DATABASE_URL` (pooled, `solar_api` role), `JWT_PUBLIC_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE`. Preview deployments deliberately have no database credentials. Migrations and seeding run from a workstation, never during a request or build — run `npm run db:migrate` against production *before* pushing code that needs a new migration.
 
 ### Examiner access
 
