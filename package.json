@@ -19,9 +19,11 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
     "db:verify": "tsx scripts/verify-seed.ts",
-    "db:local": "tsx scripts/local-db.ts"
+    "db:local": "tsx scripts/local-db.ts",
+    "token": "tsx scripts/issue-token.ts"
   },
   "dependencies": {
+    "@vercel/functions": "3.9.11",
     "express": "5.2.1",
     "jose": "6.2.12",
     "pg": "8.23.1",
