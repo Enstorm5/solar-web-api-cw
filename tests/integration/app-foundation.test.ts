@@ -127,3 +127,16 @@ describe('provinces (vertical slice)', () => {
     expect(national.headers.etag).not.toBe(provincial.headers.etag);
   });
 });
+
+describe('documentation surface', () => {
+  it('serves Swagger UI and the OpenAPI document without authentication', async () => {
+    const docs = await request(t.app).get('/docs');
+    expect(docs.status).toBe(200);
+    expect(docs.headers['content-type']).toMatch(/text\/html/);
+    expect(docs.text).toContain('/swagger-ui/vendor/swagger-ui-bundle.js');
+    const spec = await request(t.app).get('/openapi.json');
+    expect(spec.status).toBe(200);
+    expect(spec.body.openapi).toBe('3.1.0');
+    expect(spec.body.components.securitySchemes.bearerAuth.scheme).toBe('bearer');
+  });
+});

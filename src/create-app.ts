@@ -4,6 +4,7 @@ import type { AppDeps } from './deps.js';
 import { errors } from './http/errors.js';
 import { accessLog, errorHandler, requestId, routeNotFound, securityHeaders } from './http/middleware.js';
 import { requireJsonAcceptable } from './http/negotiate.js';
+import { docsRoutes } from './routes/docs.js';
 import { provinceRoutes } from './routes/provinces.js';
 import { asyncHandler } from './routes/route.js';
 
@@ -30,6 +31,8 @@ export function createApp(deps: AppDeps): express.Express {
       res.set('Cache-Control', 'no-store').json({ status: 'ok' });
     }),
   );
+
+  app.use(docsRoutes());
 
   // Precedence: authentication (401) -> negotiation (406) -> route capability (403) -> validation (400)
   // -> scoped lookup (404). Unauthenticated callers learn nothing about which routes exist.
