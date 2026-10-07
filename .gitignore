@@ -9,5 +9,4 @@ coverage/
 *.pem
 *.key
 .tmp/
-public/swagger-ui/vendor/
 public/openapi.json

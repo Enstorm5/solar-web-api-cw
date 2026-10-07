@@ -78,7 +78,7 @@ Seeded analyst subjects: `analyst-national`, `analyst-wp`, `analyst-cp` (provinc
 
 ### Deployment
 
-The Vercel project is connected to this GitHub repository: every push to `main` builds and deploys to production automatically, and other branches get preview deployments (behind Vercel authentication, with no database credentials). Vercel builds with `npm run build` (writes `public/openapi.json` and Swagger assets) and serves `src/app.ts` as one function in `sin1`, next to the Neon database. Production environment variables: `DATABASE_URL` (pooled, `solar_api` role), `JWT_PUBLIC_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE`. Preview deployments deliberately have no database credentials. Migrations and seeding run from a workstation, never during a request or build — run `npm run db:migrate` against production *before* pushing code that needs a new migration.
+The Vercel project is connected to this GitHub repository: every push to `main` builds and deploys to production automatically, and other branches get preview deployments (behind Vercel authentication, with no database credentials). Static Swagger UI assets are committed under `public/swagger-ui/vendor` (refresh with `npm run build` after upgrading `swagger-ui-dist`); `/openapi.json` is served live from `openapi/openapi.yaml`. Vercel serves `src/app.ts` as one function in `sin1`, next to the Neon database. Production environment variables: `DATABASE_URL` (pooled, `solar_api` role), `JWT_PUBLIC_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE`. Preview deployments deliberately have no database credentials. Migrations and seeding run from a workstation, never during a request or build — run `npm run db:migrate` against production *before* pushing code that needs a new migration.
 
 ### Examiner access
 
