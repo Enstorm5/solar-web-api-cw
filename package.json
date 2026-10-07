@@ -15,7 +15,11 @@
     "format": "prettier --write .",
     "test": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
-    "test:all": "vitest run"
+    "test:all": "vitest run",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:seed": "tsx scripts/seed.ts",
+    "db:verify": "tsx scripts/verify-seed.ts",
+    "db:local": "tsx scripts/local-db.ts"
   },
   "dependencies": {
     "express": "5.2.1",
