@@ -1,5 +1,7 @@
-import type { RequestHandler, Router } from 'express';
+import type { RequestHandler, Response, Router } from 'express';
+import { principalOf } from '../auth/middleware.js';
 import { methodNotAllowed } from '../http/middleware.js';
+import { scopeParams, type ScopeParams } from '../repositories/scope.js';
 
 type Handlers = Partial<Record<'get' | 'post' | 'put' | 'delete', RequestHandler | RequestHandler[]>>;
 
@@ -19,3 +21,10 @@ export const asyncHandler =
   (req, res, next) => {
     fn(req, res, next).catch(next);
   };
+
+/** Jurisdiction of the authenticated reader as SQL scope parameters (after requireReader). */
+export function readerScope(res: Response): ScopeParams {
+  const p = principalOf(res);
+  if (p.kind !== 'reader') throw new Error('reader principal expected');
+  return scopeParams(p.jurisdiction);
+}

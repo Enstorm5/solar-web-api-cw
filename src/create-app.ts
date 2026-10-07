@@ -4,6 +4,7 @@ import type { AppDeps } from './deps.js';
 import { errors } from './http/errors.js';
 import { accessLog, errorHandler, requestId, routeNotFound, securityHeaders } from './http/middleware.js';
 import { requireJsonAcceptable } from './http/negotiate.js';
+import { districtRoutes } from './routes/districts.js';
 import { docsRoutes } from './routes/docs.js';
 import { provinceRoutes } from './routes/provinces.js';
 import { asyncHandler } from './routes/route.js';
@@ -41,6 +42,7 @@ export function createApp(deps: AppDeps, app: express.Express = express()): expr
   const api = Router();
   api.use(authenticate(deps), requireJsonAcceptable);
   api.use(provinceRoutes(deps));
+  api.use(districtRoutes(deps));
   api.use(routeNotFound);
   app.use(BASE_PATH, api);
 

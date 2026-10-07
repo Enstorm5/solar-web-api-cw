@@ -32,6 +32,9 @@ function readEnv(env: NodeJS.ProcessEnv) {
 // for numeric(14,3). Registered globally because both runtime and scripts use the same parser.
 pg.types.setTypeParser(pg.types.builtins.NUMERIC, (v) => Number(v));
 pg.types.setTypeParser(pg.types.builtins.INT8, (v) => Number(v));
+// DATE stays a 'YYYY-MM-DD' string; the default parser builds a Date at *local* midnight, which
+// shifts the calendar day when the server timezone is not UTC.
+pg.types.setTypeParser(pg.types.builtins.DATE, (v) => v);
 
 export function createPool(connectionString: string): pg.Pool {
   const pool = new pg.Pool({
