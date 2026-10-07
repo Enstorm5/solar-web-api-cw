@@ -132,6 +132,18 @@ await check(
   (r) => r.status === 200 && r.headers.get('last-modified') !== null,
 );
 await check(
+  'district summary (Colombo)',
+  `${api}/districts/${seedUuid('district:CMB')}/generation-summary`,
+  bearer(national),
+  (r, b) => r.status === 200 && JSON.parse(b).installation_count > 0,
+);
+await check(
+  'district reader: foreign summary 404',
+  `${api}/districts/${seedUuid('district:KDY')}/generation-summary`,
+  bearer(cmb),
+  (r) => r.status === 404,
+);
+await check(
   '406 for non-JSON Accept',
   `${api}/provinces`,
   bearer(national, { Accept: 'application/xml' }),
