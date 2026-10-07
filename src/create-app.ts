@@ -10,8 +10,8 @@ import { asyncHandler } from './routes/route.js';
 
 export const BASE_PATH = '/solar/v1.0';
 
-export function createApp(deps: AppDeps): express.Express {
-  const app = express();
+/** Configures an Express instance (created by the caller so Vercel's entrypoint detection sees it). */
+export function createApp(deps: AppDeps, app: express.Express = express()): express.Express {
   app.disable('x-powered-by');
   app.set('etag', false); // validators are computed explicitly in sendRepresentation
 
@@ -25,7 +25,9 @@ export function createApp(deps: AppDeps): express.Express {
     asyncHandler(async (_req, res) => {
       try {
         await deps.db().query('SELECT 1');
-      } catch {
+      } catch (err) {
+        // Log the cause for operators (names/messages only, never connection strings or keys).
+        console.error(JSON.stringify({ level: 'error', check: 'ready', error: `${(err as Error).name}: ${(err as Error).message}` }));
         throw errors.unavailable();
       }
       res.set('Cache-Control', 'no-store').json({ status: 'ok' });

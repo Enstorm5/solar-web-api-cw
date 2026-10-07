@@ -1,0 +1,13 @@
+# Never upload secrets, local databases or local-only working documents to Vercel.
+.secrets
+.env
+.env.*
+.tmp
+coverage
+Requirements
+PLAN.md
+ARCHITECTURE.md
+PROJECT.md
+CLAUDE.md
+AI_LOG.md
+tests
