@@ -6,6 +6,7 @@ import { accessLog, errorHandler, requestId, routeNotFound, securityHeaders } fr
 import { requireJsonAcceptable } from './http/negotiate.js';
 import { districtRoutes } from './routes/districts.js';
 import { docsRoutes } from './routes/docs.js';
+import { installationRoutes } from './routes/installations.js';
 import { provinceRoutes } from './routes/provinces.js';
 import { substationRoutes } from './routes/substations.js';
 import { asyncHandler } from './routes/route.js';
@@ -45,6 +46,7 @@ export function createApp(deps: AppDeps, app: express.Express = express()): expr
   api.use(provinceRoutes(deps));
   api.use(districtRoutes(deps));
   api.use(substationRoutes(deps));
+  api.use(installationRoutes(deps));
   api.use(routeNotFound);
   app.use(BASE_PATH, api);
 
