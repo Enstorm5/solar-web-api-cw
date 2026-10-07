@@ -137,6 +137,55 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
+  /districts/{district-id}/generation-summary:
+    get:
+      tags: [Districts]
+      operationId: getDistrictGenerationSummary
+      summary: Aggregate generation for a district (derived, operational dashboard view)
+      description: |
+        Computed on request across every installation in the district (a processing-style
+        resource exposed as a retrievable noun). All times are evaluated for an explicit `as_of`
+        and the calendar `date` in Asia/Colombo (local midnight is 18:30 UTC the previous day).
+
+        - **current_power_kw** sums each site's latest power observed at most `freshness_seconds`
+          (30 min) before `as_of`. Stale and missing sites are counted, never assumed to be zero;
+          `fresh + stale + missing = installation_count`.
+        - **estimated_energy_kwh** is, per site, the cumulative-register difference between the
+          latest readings at/before `period_start` and `period_end`, each at most
+          `max_boundary_age_seconds` (15 min) old — a boundary-sampled estimate. Sites lacking a
+          boundary or showing a register decrease (meter reset) are excluded and counted as
+          incomplete (`meter_reset_installation_count` is a subset of incomplete). If no site is
+          covered the estimate is `null`, not 0.
+        - `period_end` = min(`as_of`, end of `date`).
+
+        The ETag covers every returned value, so a 304 is only possible within the same
+        evaluation bucket (same `as_of`, which defaults to the current minute).
+      parameters:
+        - $ref: '#/components/parameters/DistrictId'
+        - name: date
+          in: query
+          description: Calendar date in Asia/Colombo. Defaults to the local date of `as-of`.
+          schema: { type: string, format: date }
+        - name: as-of
+          in: query
+          description: Evaluation instant (RFC 3339 with offset; URL-encode `+`). Defaults to now, floored to the minute. At most 5 minutes in the future.
+          schema: { type: string, format: date-time }
+        - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: The district summary.
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+            Cache-Control: { $ref: '#/components/headers/CacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DistrictGenerationSummary' }
+        '304': { $ref: '#/components/responses/NotModified' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
   /districts/{district-id}/grid-substations:
     get:
       tags: [Grid substations]
@@ -719,6 +768,62 @@ components:
           oneOf:
             - $ref: '#/components/schemas/Reading'
             - type: 'null'
+    DistrictGenerationSummary:
+      type: object
+      required:
+        - district_id
+        - date
+        - timezone
+        - as_of
+        - period_start
+        - period_end
+        - freshness_seconds
+        - max_boundary_age_seconds
+        - current_power_kw
+        - estimated_energy_kwh
+        - installation_count
+        - fresh_installation_count
+        - stale_installation_count
+        - missing_installation_count
+        - energy_covered_installation_count
+        - energy_incomplete_installation_count
+        - meter_reset_installation_count
+      properties:
+        district_id: { type: string, format: uuid }
+        date: { type: string, format: date }
+        timezone: { type: string, const: Asia/Colombo }
+        as_of: { type: string, format: date-time }
+        period_start: { type: string, format: date-time }
+        period_end: { type: string, format: date-time }
+        freshness_seconds: { type: integer, example: 1800 }
+        max_boundary_age_seconds: { type: integer, example: 900 }
+        current_power_kw: { type: number }
+        estimated_energy_kwh: { type: [number, 'null'] }
+        installation_count: { type: integer }
+        fresh_installation_count: { type: integer }
+        stale_installation_count: { type: integer }
+        missing_installation_count: { type: integer }
+        energy_covered_installation_count: { type: integer }
+        energy_incomplete_installation_count: { type: integer }
+        meter_reset_installation_count: { type: integer }
+      example:
+        district_id: 6f1d2c3b-0a9e-5d8c-b7a6-112233445566
+        date: '2026-09-25'
+        timezone: Asia/Colombo
+        as_of: '2026-09-25T06:30:00.000Z'
+        period_start: '2026-09-24T18:30:00.000Z'
+        period_end: '2026-09-25T06:30:00.000Z'
+        freshness_seconds: 1800
+        max_boundary_age_seconds: 900
+        current_power_kw: 11
+        estimated_energy_kwh: 20.5
+        installation_count: 7
+        fresh_installation_count: 5
+        stale_installation_count: 1
+        missing_installation_count: 1
+        energy_covered_installation_count: 2
+        energy_incomplete_installation_count: 5
+        meter_reset_installation_count: 2
     CollectionEnvelope:
       type: object
       required: [data, count, limit, offset, next, previous]
