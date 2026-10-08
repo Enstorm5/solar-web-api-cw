@@ -1,0 +1,4 @@
+/* /docs documents this API only: hide the top bar's "explore another spec URL" form. */
+.swagger-ui .topbar .download-url-wrapper {
+  display: none;
+}

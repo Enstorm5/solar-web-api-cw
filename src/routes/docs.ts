@@ -8,11 +8,13 @@ const DOCS_HTML = `<!doctype html>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SLSEA Solar Generation API</title>
   <link rel="stylesheet" href="/swagger-ui/vendor/swagger-ui.css">
+  <link rel="stylesheet" href="/swagger-ui/custom.css">
   <link rel="icon" type="image/png" href="/swagger-ui/vendor/favicon-32x32.png">
 </head>
 <body>
   <div id="swagger-ui"></div>
   <script src="/swagger-ui/vendor/swagger-ui-bundle.js"></script>
+  <script src="/swagger-ui/vendor/swagger-ui-standalone-preset.js"></script>
   <script src="/swagger-ui/init.js"></script>
 </body>
 </html>`;

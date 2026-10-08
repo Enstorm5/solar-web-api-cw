@@ -11,6 +11,7 @@ import { dirname, join } from 'node:path';
 export const VENDOR_DIR = 'public/swagger-ui/vendor';
 export const VENDOR_FILES = [
   'swagger-ui-bundle.js',
+  'swagger-ui-standalone-preset.js',
   'swagger-ui.css',
   'favicon-32x32.png',
   'LICENSE',
