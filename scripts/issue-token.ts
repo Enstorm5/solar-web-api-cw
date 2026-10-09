@@ -8,9 +8,12 @@
 //   npm run token -- inspect <token>   (decode header/claims and verify locally with the public key)
 //   npm run token -- tamper <token> --sub analyst-national --scope analyst-read-national
 //     (security demo: rewrites claims but keeps the original signature; the API must reject it)
+//   npm run token -- subjects [n]      (valid --sub values from the database, with their scopes)
+//   npm run token -- help
 //   In PowerShell call npm.cmd instead of npm, otherwise PowerShell swallows the `--`.
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { parseArgs } from 'node:util';
+import pg from 'pg';
 import {
   calculateJwkThumbprint,
   decodeJwt,
@@ -128,7 +131,88 @@ if (command === 'keygen') {
   const payload = Buffer.from(JSON.stringify(claims)).toString('base64url');
   // Same header and signature, edited payload: what an attacker without the private key can do.
   process.stdout.write(`${parts[0]}.${payload}.${parts[2]}\n`);
+} else if (command === 'subjects') {
+  // Lists the identities a token can name, read from the database the API uses (DATABASE_URL).
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    console.error('Set DATABASE_URL (loaded from .env when present).');
+    process.exit(1);
+  }
+  const scopeFor = {
+    national: 'analyst-read-national',
+    provincial: 'analyst-read-province',
+    district: 'analyst-read-district',
+  };
+  const db = new pg.Client({ connectionString: url });
+  await db.connect();
+  try {
+    const users = await db.query<{
+      subject: string;
+      role: keyof typeof scopeFor;
+      area: string | null;
+      active: boolean;
+    }>(
+      `SELECT u.subject, u.role, COALESCE(p.name, d.name) AS area, u.active
+         FROM users u LEFT JOIN provinces p ON p.id = u.province_id LEFT JOIN districts d ON d.id = u.district_id
+        ORDER BY u.role, u.subject`,
+    );
+    console.log('\nUsers  (--principal user --sub <subject> --scope <scope>)');
+    console.table(
+      users.rows.map((u) => ({
+        sub: u.subject,
+        scope: scopeFor[u.role],
+        role: u.role,
+        area: u.area ?? 'all of Sri Lanka',
+        active: u.active,
+      })),
+    );
+    const limit = Number(rest[0] ?? 10);
+    const devices = await db.query<{
+      id: string;
+      meter_id: string;
+      district: string;
+      active: boolean;
+    }>(
+      `SELECT i.id, i.meter_id, d.name AS district, i.active
+         FROM solar_installations i JOIN grid_substations s ON s.id = i.substation_id JOIN districts d ON d.id = s.district_id
+        ORDER BY i.meter_id LIMIT $1`,
+      [limit],
+    );
+    const total = (
+      await db.query<{ n: number }>('SELECT count(*)::int AS n FROM solar_installations')
+    ).rows[0]!.n;
+    console.log(
+      `\nDevices  (--principal device --sub <id> --scope installation-write)  first ${devices.rowCount} of ${total}; pass a number for more`,
+    );
+    console.table(
+      devices.rows.map((d) => ({
+        sub: d.id,
+        meter_id: d.meter_id,
+        district: d.district,
+        active: d.active,
+      })),
+    );
+    console.log(
+      '\nService  (--principal service --sub provisioning-service --scope installation-manage)\n',
+    );
+  } finally {
+    await db.end();
+  }
 } else {
-  console.error('Commands: keygen | issue | inspect | tamper');
-  process.exit(1);
+  console.log(`Token tool. In PowerShell use npm.cmd (PowerShell swallows "--" for npm).
+
+  npm.cmd run -s token -- help                 this text
+  npm.cmd run -s token -- subjects [n]         users and device ids in the database, with their scopes
+  npm.cmd run -s token -- issue --principal <p> --sub <subject> --scope <scope> [--ttl 1h|1d|60d]
+  npm.cmd run -s token -- inspect <token>      decode and verify locally
+  npm.cmd run -s token -- tamper <token> [--sub x] [--scope y]   forgery demo (API must answer 401)
+  npm.cmd run -s token -- keygen               create the key pair (never --force without updating Vercel)
+
+  --principal   --sub                                   --scope
+  user          a users.subject (see "subjects")        must match the user's role:
+                                                        analyst-read-national | analyst-read-province | analyst-read-district
+  device        an installation id (see "subjects")     installation-write
+  service       provisioning-service                    installation-manage
+  --ttl         default 30d; e.g. 15m, 1h, 1d, 60d`);
+  process.exitCode = command && command !== 'help' ? 1 : 0;
 }
