@@ -1,7 +1,15 @@
-import EmbeddedPostgres from 'embedded-postgres';
 import pg from 'pg';
 import { rmSync } from 'node:fs';
 import type { TestProject } from 'vitest/node';
+
+// embedded-postgres registers async-exit-hook, whose `beforeExit` handler calls process.exit(0)
+// and so overwrote vitest's failing exit code (a failing run exited 0). Drop only that listener;
+// teardown below stops PostgreSQL explicitly, and the signal handlers stay in place.
+const beforeExitListeners = process.listeners('beforeExit');
+const { default: EmbeddedPostgres } = await import('embedded-postgres');
+for (const listener of process.listeners('beforeExit')) {
+  if (!beforeExitListeners.includes(listener)) process.off('beforeExit', listener);
+}
 import { runMigrations } from '../../src/db/migrate.js';
 import { ensureRuntimeRole, RUNTIME_ROLE } from '../../src/db/runtime-role.js';
 import { seedDatabase } from '../../src/seed/seed.js';
