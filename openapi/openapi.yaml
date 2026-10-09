@@ -25,6 +25,21 @@ info:
     **Caching.** Every successful GET carries a strong `ETag`; send it back in `If-None-Match`
     to receive `304 Not Modified` with an empty body. Atomic installations and readings also
     carry `Last-Modified` and honour `If-Modified-Since` (ignored when `If-None-Match` is present).
+
+    **Error codes** (field `code` of the common error body):
+
+    | HTTP | code | meaning |
+    |---|---|---|
+    | 400 | 1001 / 1002 / 1003 / 1004 | invalid body field / malformed JSON / invalid query parameter / path id not a UUID |
+    | 401 | 1010 / 1011 | no bearer token / token invalid, expired or subject unknown or inactive |
+    | 403 | 1020 / 1021 | missing scope for this operation / If-Match required |
+    | 404 | 1030 / 1031 | resource not found or outside your jurisdiction / no such route |
+    | 405 | 1040 | method not supported (see `Allow`) |
+    | 406 | 1050 | `Accept` excludes application/json |
+    | 409 | 1060 / 1061 / 1062 / 1063 | duplicate reading / installation has readings / duplicate meter_id / history-protected change |
+    | 412 | 1070 | stale If-Match |
+    | 413 / 415 | 1080 / 1090 | body too large / body not JSON |
+    | 500 / 503 | 1000 / 1100 | unexpected error / database unavailable |
 servers:
   - url: /solar/v1.0
 security:
@@ -877,6 +892,19 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            validation:
+              summary: 'Invalid body field'
+              value: { code: 1001, message: 'Request validation failed', description: Bad request, error: [{ code: 1001, message: 'Too small: expected number to be >=0', field: power_kw }], request_id: 3f1c2b7e-9a4d-4e57-8f0a-2b6c1d9e8a10 }
+            query:
+              summary: 'Invalid query parameter'
+              value: { code: 1003, message: 'Invalid query parameters', description: Bad request, error: [{ code: 1003, message: 'Too small: expected number to be >=1', field: limit }], request_id: 3f1c2b7e-9a4d-4e57-8f0a-2b6c1d9e8a10 }
+            malformedJson:
+              summary: 'Body is not valid JSON'
+              value: { code: 1002, message: 'Request body is not valid JSON', description: Bad request, request_id: 3f1c2b7e-9a4d-4e57-8f0a-2b6c1d9e8a10 }
+            pathId:
+              summary: 'Path id is not a UUID'
+              value: { code: 1004, message: 'Invalid path parameter', description: Bad request, error: [{ code: 1004, message: Must be a UUID, field: installationId }], request_id: 3f1c2b7e-9a4d-4e57-8f0a-2b6c1d9e8a10 }
     Unauthorized:
       description: Missing, malformed, expired or otherwise invalid bearer token.
       headers:
@@ -884,21 +912,43 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            missingToken:
+              summary: 'No Authorization header'
+              value: { code: 1010, message: 'A bearer token is required', description: Unauthorized, request_id: 3f1c2b7e-9a4d-4e57-8f0a-2b6c1d9e8a10 }
+            invalidToken:
+              summary: 'Bad signature, expired, wrong issuer/audience, or unknown/inactive subject'
+              value: { code: 1011, message: 'The bearer token is invalid or expired', description: Unauthorized, request_id: 3f1c2b7e-9a4d-4e57-8f0a-2b6c1d9e8a10 }
     Forbidden:
       description: Valid token without the scope required for this operation (1020), or a required If-Match precondition is missing (1021).
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            insufficientScope:
+              summary: 'Token lacks the scope this operation needs'
+              value: { code: 1020, message: 'This operation requires scope: installation-write', description: Forbidden, request_id: 3f1c2b7e-9a4d-4e57-8f0a-2b6c1d9e8a10 }
+            preconditionRequired:
+              summary: 'PUT/DELETE without If-Match'
+              value: { code: 1021, message: 'This request must be conditional: send If-Match with the current ETag', description: Forbidden, request_id: 3f1c2b7e-9a4d-4e57-8f0a-2b6c1d9e8a10 }
     NotFound:
       description: Resource does not exist or is outside the caller's jurisdiction.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            notFound:
+              summary: 'Unknown or outside your jurisdiction'
+              value: { code: 1030, message: 'Installation not found', description: Not found, request_id: 3f1c2b7e-9a4d-4e57-8f0a-2b6c1d9e8a10 }
     NotAcceptable:
       description: The Accept header excludes application/json.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            notAcceptable:
+              summary: 'Accept excludes application/json'
+              value: { code: 1050, message: 'Only application/json representations are available', description: Not acceptable, request_id: 3f1c2b7e-9a4d-4e57-8f0a-2b6c1d9e8a10 }
     Conflict:
       description: |
         Duplicate reading timestamp (1060), installation with readings cannot be deleted (1061),
@@ -906,21 +956,46 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            duplicateReading:
+              summary: 'Reading for this timestamp exists'
+              value: { code: 1060, message: 'A reading for this installation and timestamp already exists; history is never overwritten', description: Conflict, request_id: 3f1c2b7e-9a4d-4e57-8f0a-2b6c1d9e8a10 }
+            installationHasReadings:
+              summary: 'Delete refused: has readings'
+              value: { code: 1061, message: 'Installations with recorded readings cannot be deleted; deactivate instead', description: Conflict, request_id: 3f1c2b7e-9a4d-4e57-8f0a-2b6c1d9e8a10 }
+            duplicateMeter:
+              summary: 'meter_id already used'
+              value: { code: 1062, message: 'Another installation already uses this meter_id', description: Conflict, request_id: 3f1c2b7e-9a4d-4e57-8f0a-2b6c1d9e8a10 }
+            historyProtected:
+              summary: 'Re-meter/re-parent refused'
+              value: { code: 1063, message: 'Cannot change meter_id of an installation that has recorded readings', description: Conflict, request_id: 3f1c2b7e-9a4d-4e57-8f0a-2b6c1d9e8a10 }
     PreconditionFailed:
       description: The supplied If-Match no longer matches the current ETag; nothing was changed.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            stale:
+              summary: 'If-Match does not match the current ETag'
+              value: { code: 1070, message: 'The resource has changed since the supplied ETag; GET it again and retry', description: Precondition failed, request_id: 3f1c2b7e-9a4d-4e57-8f0a-2b6c1d9e8a10 }
     PayloadTooLarge:
       description: Request body exceeds the size limit.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            tooLarge:
+              summary: 'Body over 16 KB'
+              value: { code: 1080, message: 'Request body is too large', description: Payload too large, request_id: 3f1c2b7e-9a4d-4e57-8f0a-2b6c1d9e8a10 }
     UnsupportedMediaType:
       description: Request body is not application/json.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            wrongType:
+              summary: 'Body is not application/json'
+              value: { code: 1090, message: 'Request body must be application/json', description: Unsupported media type, request_id: 3f1c2b7e-9a4d-4e57-8f0a-2b6c1d9e8a10 }
     ProvinceCollection:
       description: Page of provinces.
       headers:
