@@ -1,6 +1,6 @@
 # 12 – Plan vs build
 
-PLAN.md was never updated after it was written. When it disagrees with the decisions below, **the decisions win**. Full records are in PROJECT.md §2 and ARCHITECTURE.md §13 (local files).
+PLAN.md was never updated after it was written. When it disagrees with the decisions below, **the decisions win**. Full records are in PROJECT.md §2 and ARCHITECTURE.md §13.
 
 ## Conflicts that needed a decision
 
